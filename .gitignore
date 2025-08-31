@@ -1,0 +1,26 @@
+# node / build
+node_modules/
+dist/
+.build/
+cdk.out/
+
+# env & secrets
+.env
+.env.*
+*.secret
+*.key
+*.pem
+*.p12
+*.crt
+*.credentials
+*.csv
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# local service account json (we store it in AWS Secrets Manager instead)
+*serviceaccount*.json
+*.gserviceaccount.com.json
