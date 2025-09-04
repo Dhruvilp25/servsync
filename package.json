@@ -9,5 +9,13 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.879.0",
+    "@aws-sdk/client-secrets-manager": "^3.879.0",
+    "@aws-sdk/client-sfn": "^3.879.0",
+    "@notionhq/client": "^5.0.0",
+    "@types/node": "^24.3.0",
+    "googleapis": "^159.0.0"
+  }
 }
