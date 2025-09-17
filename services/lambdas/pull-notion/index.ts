@@ -2,6 +2,7 @@ import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { Client as Notion } from '@notionhq/client';
 
+// DynamoDB + Secrets Manager clients
 const ddb = new DynamoDBClient({});
 const sm = new SecretsManagerClient({});
 
