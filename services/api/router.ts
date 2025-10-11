@@ -14,7 +14,7 @@ export const handler = async (event: any) => {
   console.log('event.httpMethod:', event.httpMethod);
   console.log('event.requestContext?.http:', event.requestContext?.http);
 
-  // Normalize method & path (strip trailing slashes)
+  // Normalize method & path (to strip trailing slashes)
   const method =
     event.httpMethod ||
     event.requestContext?.http?.method ||
