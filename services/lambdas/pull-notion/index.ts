@@ -39,5 +39,5 @@ export const handler = async (event: any) => {
     DueDate: p.properties?.Due?.date?.start ?? ''
   }));
 
-  return { tenantId, jobId, rows, meta: { pulled: rows.length } };
+  return { ...event, rows, meta: { pulled: rows.length } };
 };

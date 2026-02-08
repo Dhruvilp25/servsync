@@ -1,4 +1,4 @@
-import { DynamoDBClient, PutItemCommand, GetItemCommand, ScanCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, PutItemCommand, GetItemCommand, ScanCommand, QueryCommand } from '@aws-sdk/client-dynamodb';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
 const ddb = new DynamoDBClient({}); const sfn = new SFNClient({});
 const json = (code:number, data:any) => ({
@@ -59,22 +59,55 @@ export const handler = async (event: any) => {
     return json(200, res.Item || {});
   }
 
+  // /jobs/:id/runs (GET) — run history for monitoring
+  if (segments.length === 3 && segments[0] === 'jobs' && segments[2] === 'runs' && method === 'GET') {
+    const jobId = segments[1];
+    const res = await ddb.send(new QueryCommand({
+      TableName: process.env.RUNS_TABLE!,
+      KeyConditionExpression: 'jobId = :jobId',
+      ExpressionAttributeValues: { ':jobId': { S: jobId } },
+      ScanIndexForward: false,
+      Limit: 50,
+    }));
+    const runs = (res.Items || []).map((i) => ({
+      runId: i.runId?.S,
+      status: i.status?.S,
+      stats: i.stats?.S ? JSON.parse(i.stats.S) : undefined,
+      startedAt: i.startedAt?.S,
+      endedAt: i.endedAt?.S,
+      executionArn: i.executionArn?.S,
+    }));
+    return json(200, runs);
+  }
+
   // /jobs/:id/run (POST)
   if (segments.length === 3 && segments[0] === 'jobs' && segments[2] === 'run' && method === 'POST') {
     const id = segments[1];
     const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body || {};
-    // fetch target from Job so push step knows where to write
+    const tenantId = body.tenantId || 'jay';
     const job = await ddb.send(new GetItemCommand({
       TableName: process.env.JOBS_TABLE!,
-      Key: { tenantId: { S: body.tenantId || 'jay' }, jobId: { S: id } }
+      Key: { tenantId: { S: tenantId }, jobId: { S: id } }
     }));
     const target = job.Item ? JSON.parse(job.Item.target.S!) : undefined;
-    const input = { tenantId: body.tenantId || 'jay', jobId: id, watermark: null, target };
+    const runId = `manual-${Date.now()}`;
+    const startedAt = new Date().toISOString();
+    const input = { tenantId, jobId: id, watermark: null, target, runId };
     const out = await sfn.send(new StartExecutionCommand({
       stateMachineArn: process.env.STATE_MACHINE_ARN!,
       input: JSON.stringify(input)
     }));
-    return json(200, { executionArn: out.executionArn });
+    await ddb.send(new PutItemCommand({
+      TableName: process.env.RUNS_TABLE!,
+      Item: {
+        jobId: { S: id },
+        runId: { S: runId },
+        status: { S: 'RUNNING' },
+        startedAt: { S: startedAt },
+        executionArn: { S: out.executionArn! },
+      }
+    }));
+    return json(200, { runId, executionArn: out.executionArn });
   }
 
   return json(404, { message: 'not found', path, method });

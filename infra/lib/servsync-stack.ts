@@ -124,6 +124,12 @@ export class ServsyncStack extends cdk.Stack {
     });
 
     httpApi.addRoutes({
+      path: '/jobs/{id}/runs',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new apigwInt.HttpLambdaIntegration('JobRuns', apiHandler),
+    });
+
+    httpApi.addRoutes({
       path: '/jobs/{id}/run',
       methods: [apigwv2.HttpMethod.POST],
       integration: new apigwInt.HttpLambdaIntegration('RunNow', apiHandler),
