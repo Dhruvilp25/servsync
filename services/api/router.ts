@@ -59,6 +59,26 @@ export const handler = async (event: any) => {
     return json(200, res.Item || {});
   }
 
+  // /jobs/:id (PUT) — update job
+  if (segments.length === 2 && segments[0] === 'jobs' && method === 'PUT') {
+    const id = segments[1];
+    const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+    const tenantId = body.tenantId || 'jay';
+    await ddb.send(new PutItemCommand({
+      TableName: process.env.JOBS_TABLE!,
+      Item: {
+        tenantId: { S: tenantId },
+        jobId: { S: id },
+        name: { S: body.name ?? id },
+        source: { S: JSON.stringify(body.source ?? {}) },
+        target: { S: JSON.stringify(body.target ?? {}) },
+        mapping: { S: JSON.stringify(body.mapping ?? []) },
+        nextDueAt: { S: body.nextDueAt ?? new Date().toISOString() }
+      }
+    }));
+    return json(200, { ok: true });
+  }
+
   // /jobs/:id/runs (GET) — run history for monitoring
   if (segments.length === 3 && segments[0] === 'jobs' && segments[2] === 'runs' && method === 'GET') {
     const jobId = segments[1];

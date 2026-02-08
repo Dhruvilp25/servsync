@@ -32,9 +32,11 @@ export class ServsyncStack extends cdk.Stack {
     const googleSa = secrets.Secret.fromSecretNameV2(this, 'GoogleSA', 'GOOGLE_SA_JSON');
 
     /* ========== Helper to create Lambdas ========== */
-    const mk = (id: string, entry: string, extraEnv: Record<string, string> = {}) =>
+    const mk = (id: string, entry: string, extraEnv: Record<string, string> = {}, opts: { memoryMB?: number; timeoutSec?: number } = {}) =>
       new lambda.NodejsFunction(this, id, {
         entry, // path is relative to /infra
+        timeout: cdk.Duration.seconds(opts.timeoutSec ?? 60),
+        memorySize: opts.memoryMB ?? 512,
         environment: {
           JOBS_TABLE: jobs.tableName,
           RUNS_TABLE: runs.tableName,
@@ -45,9 +47,9 @@ export class ServsyncStack extends cdk.Stack {
       });
 
     /* ========== Step Lambdas (no ARN needed yet) ========== */
-    const pull = mk('PullNotion', '../services/lambdas/pull-notion/index.ts');
+    const pull = mk('PullNotion', '../services/lambdas/pull-notion/index.ts', {}, { memoryMB: 1024, timeoutSec: 90 });
     const xform = mk('TransformMap', '../services/lambdas/transform-map/index.ts');
-    const push = mk('PushSheets', '../services/lambdas/push-sheets/index.ts');
+    const push = mk('PushSheets', '../services/lambdas/push-sheets/index.ts', {}, { timeoutSec: 90 });
     const record = mk('RecordRun', '../services/lambdas/record-run/index.ts');
 
     // DDB permissions for steps
@@ -109,7 +111,13 @@ export class ServsyncStack extends cdk.Stack {
     });
 
     /* ========== HTTP API (API Gateway v2) ========== */
-    const httpApi = new apigwv2.HttpApi(this, 'HttpApi');
+    const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
+      corsPreflight: {
+        allowOrigins: ['*'],
+        allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.POST, apigwv2.CorsHttpMethod.PUT, apigwv2.CorsHttpMethod.OPTIONS],
+        allowHeaders: ['Content-Type', 'Authorization'],
+      },
+    });
 
     httpApi.addRoutes({
       path: '/jobs',
@@ -119,7 +127,7 @@ export class ServsyncStack extends cdk.Stack {
 
     httpApi.addRoutes({
       path: '/jobs/{id}',
-      methods: [apigwv2.HttpMethod.GET],
+      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.PUT],
       integration: new apigwInt.HttpLambdaIntegration('JobById', apiHandler),
     });
 

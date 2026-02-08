@@ -8,7 +8,7 @@ export default function NewJob() {
     name: '',
     notionDbId: '',
     sheetId: '',
-    range: 'Sheet1!A:C'
+    range: 'Sheet1!A1:C'
   })
   const [saving, setSaving] = useState(false)
 
@@ -77,8 +77,9 @@ export default function NewJob() {
               onChange={onChange}
               required
               className="mt-1 w-full border rounded p-2"
-              placeholder="24dca2448732804ab218cfe3ba8aa071"
+              placeholder="24dca244-8732-804a-b218-cfe3ba8aa071"
             />
+            <p className="mt-1 text-xs text-gray-500">From the database URL. Share the database with your integration (⋮ → Connections).</p>
           </div>
 
           <div>
@@ -101,8 +102,9 @@ export default function NewJob() {
             value={form.range}
             onChange={onChange}
             className="mt-1 w-full border rounded p-2"
-            placeholder="Sheet1!A:C"
+            placeholder="Sheet1!A1:C"
           />
+          <p className="mt-1 text-xs text-gray-500">Use the tab name from the bottom of the sheet. If the tab has spaces, use quotes: &apos;To-do list&apos;!A1:C</p>
         </div>
 
         <button

@@ -70,13 +70,21 @@ export default function JobDetail() {
       <a className="inline-block mb-4 text-sm px-3 py-2 rounded border" href="/">← Back</a>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Job: {id}</h1>
-        <button
-          onClick={runNow}
-          disabled={running}
-          className="text-sm px-3 py-2 rounded bg-black text-white disabled:opacity-60"
-        >
-          {running ? 'Starting…' : 'Run now'}
-        </button>
+        <div className="flex gap-2">
+          <a
+            href={`/jobs/${id}/edit`}
+            className="text-sm px-3 py-2 rounded border"
+          >
+            Edit
+          </a>
+          <button
+            onClick={runNow}
+            disabled={running}
+            className="text-sm px-3 py-2 rounded bg-black text-white disabled:opacity-60"
+          >
+            {running ? 'Starting…' : 'Run now'}
+          </button>
+        </div>
       </div>
       {err && <div className="mb-4 text-red-600">{err}</div>}
 
