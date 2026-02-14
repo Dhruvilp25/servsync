@@ -1,6 +1,8 @@
 # ServSync (MVP)
 Serverless sync: Notion->Google Sheets using AWS (Lambda, Step Functions, EventBridge), React/Tailwind dashboard.
 
+**Setting up on a new AWS account?** → See **[docs/SETUP-NEW-ACCOUNT.md](docs/SETUP-NEW-ACCOUNT.md)** for a full step-by-step.
+
 ## Quick start (first-time / deploy)
 
 1. **Secrets** — Create in AWS Secrets Manager (same account/region as deploy):
