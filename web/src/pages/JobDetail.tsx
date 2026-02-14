@@ -9,6 +9,7 @@ type Run = {
   startedAt?: string
   endedAt?: string
   executionArn?: string
+  failure?: { error?: string; cause?: string }
 }
 
 function formatJobItem(item: Record<string, { S?: string }> | undefined): Record<string, unknown> {
@@ -106,18 +107,29 @@ export default function JobDetail() {
         ) : (
           <ul className="space-y-2">
             {runs.map((r) => (
-              <li key={r.runId} className="border rounded p-3 flex items-center justify-between text-sm">
-                <div>
-                  <span className="font-medium">{r.runId}</span>
-                  <span className={`ml-2 px-2 py-0.5 rounded text-xs ${r.status === 'RUNNING' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
-                    {r.status}
-                  </span>
-                  {r.startedAt && <span className="ml-2 text-gray-500">{new Date(r.startedAt).toLocaleString()}</span>}
+              <li key={r.runId} className="border rounded p-3 flex flex-col gap-1 text-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium">{r.runId}</span>
+                    <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                      r.status === 'RUNNING' ? 'bg-amber-100 text-amber-800' :
+                      r.status === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                    }`}>
+                      {r.status}
+                    </span>
+                    {r.startedAt && <span className="ml-2 text-gray-500">{new Date(r.startedAt).toLocaleString()}</span>}
+                  </div>
+                  {r.stats && (
+                    <span className="text-gray-600">
+                      pulled: {r.stats.pulled ?? '—'}, pushed: {r.stats.pushed ?? '—'}
+                    </span>
+                  )}
                 </div>
-                {r.stats && (
-                  <span className="text-gray-600">
-                    pulled: {r.stats.pulled ?? '—'}, pushed: {r.stats.pushed ?? '—'}
-                  </span>
+                {r.status === 'FAILED' && r.failure && (
+                  <p className="text-red-600 text-xs mt-1">
+                    {r.failure.error ?? 'Unknown error'}
+                    {r.failure.cause && ` — ${r.failure.cause}`}
+                  </p>
                 )}
               </li>
             ))}

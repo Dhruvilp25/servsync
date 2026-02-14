@@ -96,6 +96,7 @@ export const handler = async (event: any) => {
       startedAt: i.startedAt?.S,
       endedAt: i.endedAt?.S,
       executionArn: i.executionArn?.S,
+      failure: i.failure?.S ? JSON.parse(i.failure.S) : undefined,
     }));
     return json(200, runs);
   }

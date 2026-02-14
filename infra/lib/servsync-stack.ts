@@ -110,6 +110,22 @@ export class ServsyncStack extends cdk.Stack {
       targets: [new targets.LambdaFunction(scheduler)],
     });
 
+    /* ========== Mark run FAILED when Step Functions execution fails ========== */
+    const markRunFailed = mk('MarkRunFailed', '../services/lambdas/mark-run-failed/index.ts');
+    runs.grantReadWriteData(markRunFailed);
+
+    new events.Rule(this, 'StepFunctionFailed', {
+      eventPattern: {
+        source: ['aws.states'],
+        detailType: ['Step Functions Execution Status Change'],
+        detail: {
+          status: ['FAILED'],
+          stateMachineArn: [machine.stateMachineArn],
+        },
+      },
+      targets: [new targets.LambdaFunction(markRunFailed)],
+    });
+
     /* ========== HTTP API (API Gateway v2) ========== */
     const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
       corsPreflight: {
