@@ -34,3 +34,17 @@ Serverless sync: Notion->Google Sheets using AWS (Lambda, Step Functions, EventB
      ```
    - Open the URL Vite prints (e.g. http://localhost:5173).
 3. **Test flow** — Create a job (New Job) with a Notion DB ID and Google Sheet ID, then open the job and use **Run now**. Check **Run history** on the job detail page for status and stats.
+
+## CI/CD (GitHub Actions)
+
+Pushing to `main` runs a pipeline that:
+
+- **Validate** (every push and every PR): Installs dependencies and runs `cdk synth`. If the stack doesn’t compile or has invalid config, the workflow fails so you catch errors before merge.
+- **Deploy** (push to `main` only): Runs `cdk deploy` so the live AWS stack (Lambdas, API, Step Functions, etc.) is updated from the repo. You don’t need to run deploy from your laptop.
+
+**Setup:** In the GitHub repo → **Settings** → **Secrets and variables** → **Actions**, add:
+
+- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` from an IAM user that can deploy the CDK stack (e.g. AdministratorAccess or a policy that allows CloudFormation, Lambda, API Gateway, DynamoDB, etc.).
+- Optional: `AWS_REGION` (default is `us-east-1`).
+
+After that, push to `main` and check the **Actions** tab to see the workflow run and deploy.
