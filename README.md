@@ -1,10 +1,11 @@
 # ServSync
 
-Sync data from Notion to Google Sheets on a schedule. You configure jobs in a small React dashboard; the rest runs on AWS (Lambda, Step Functions, EventBridge).
+Sync data from Notion to Google Sheets on a schedule. You configure jobs in a small React dashboard; the rest runs on AWS (Lambda, Step Functions, EventBridge)
+
 
 ---
 
-## What you need before you start
+## What you need before you start.
 
 - **Node.js** (v18+) and **npm**
 - **AWS account** (CLI configured: `aws configure` with access key and region, e.g. `us-east-1`)
