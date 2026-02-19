@@ -5,7 +5,7 @@ Sync data from Notion to Google Sheets on a schedule. You configure jobs in a sm
 
 ---
 
-## What you need before you start.
+## What you need before you start the application.
 
 - **Node.js** (v18+) and **npm**
 - **AWS account** (CLI configured: `aws configure` with access key and region, e.g. `us-east-1`)
