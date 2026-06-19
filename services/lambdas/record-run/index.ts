@@ -7,7 +7,8 @@ export const handler = async (event: any) => {
   const runId = event.runId;
 
   if (runId) {
-    // API-triggered run: update the run we created when "Run now" was clicked
+    // Both API "Run now" and the scheduler create a RUNNING row up front and
+    // pass runId; mark it SUCCEEDED here.
     await ddb.send(new UpdateItemCommand({
       TableName: process.env.RUNS_TABLE!,
       Key: { jobId: { S: jobId }, runId: { S: runId } },
@@ -20,7 +21,7 @@ export const handler = async (event: any) => {
       },
     }));
   } else {
-    // Scheduler-triggered run: create a new run record (no runId was passed)
+    // Fallback (no runId passed): create a completed run record.
     await ddb.send(new PutItemCommand({
       TableName: process.env.RUNS_TABLE!,
       Item: {
@@ -34,11 +35,5 @@ export const handler = async (event: any) => {
     }));
   }
 
-  await ddb.send(new UpdateItemCommand({
-    TableName: process.env.JOBS_TABLE!,
-    Key: { tenantId: { S: event.tenantId }, jobId: { S: jobId } },
-    UpdateExpression: 'SET lastWatermark = :ts',
-    ExpressionAttributeValues: { ':ts': { S: now } }
-  }));
   return { ok: true };
 };

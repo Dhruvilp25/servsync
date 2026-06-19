@@ -1,16 +1,21 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
+import { colLetter, fromMapping, toMapping } from '../lib/mapping'
 
 function formatJobToForm(item: Record<string, { S?: string }> | undefined) {
   if (!item || Object.keys(item).length === 0) return null
   const source = item.source?.S ? JSON.parse(item.source.S) : {}
   const target = item.target?.S ? JSON.parse(item.target.S) : {}
+  const mapping = item.mapping?.S ? JSON.parse(item.mapping.S) : []
   return {
-    name: item.name?.S ?? '',
-    notionDbId: source.dbId ?? '',
-    sheetId: target.sheetId ?? '',
-    range: target.range ?? 'Sheet1!A1:C',
+    form: {
+      name: item.name?.S ?? '',
+      notionDbId: source.dbId ?? '',
+      sheetId: target.sheetId ?? '',
+      range: target.range ?? 'Sheet1!A1:C',
+    },
+    fields: fromMapping(mapping),
   }
 }
 
@@ -23,6 +28,7 @@ export default function JobEdit() {
     sheetId: '',
     range: 'Sheet1!A1:C',
   })
+  const [fields, setFields] = useState<string[]>(['Name', 'Status', 'Due'])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -34,7 +40,10 @@ export default function JobEdit() {
       try {
         const r = await api.get(`/jobs/${id}`)
         const parsed = formatJobToForm(r.data)
-        if (!cancelled && parsed) setForm(parsed)
+        if (!cancelled && parsed) {
+          setForm(parsed.form)
+          if (parsed.fields.length) setFields(parsed.fields)
+        }
       } catch (e: any) {
         if (!cancelled) setErr(e?.response?.data?.message || e.message)
       } finally {
@@ -47,8 +56,18 @@ export default function JobEdit() {
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value })
 
+  const setField = (i: number, value: string) =>
+    setFields(fields.map((f, idx) => (idx === i ? value : f)))
+  const addField = () => setFields([...fields, ''])
+  const removeField = (i: number) => setFields(fields.filter((_, idx) => idx !== i))
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const mapping = toMapping(fields)
+    if (mapping.length === 0) {
+      alert('Add at least one Notion property to sync.')
+      return
+    }
     setSaving(true)
     try {
       await api.put(`/jobs/${id}`, {
@@ -56,11 +75,7 @@ export default function JobEdit() {
         name: form.name || id,
         source: { type: 'notion', dbId: form.notionDbId },
         target: { type: 'sheets', sheetId: form.sheetId, range: form.range },
-        mapping: [
-          { from: 'Name', to: 'A' },
-          { from: 'Status', to: 'B' },
-          { from: 'DueDate', to: 'C' },
-        ],
+        mapping,
         nextDueAt: new Date().toISOString(),
       })
       navigate(`/jobs/${id}`)
@@ -113,6 +128,43 @@ export default function JobEdit() {
           />
         </div>
 
+        {/* Field mapping: Notion property → spreadsheet column (by order) */}
+        <div>
+          <label className="block text-sm font-medium">Fields to sync</label>
+          <p className="mt-1 mb-2 text-xs text-gray-500">
+            Notion property names, in column order. They map to columns A, B, C… and become the
+            sheet’s header row. Names must match your database exactly.
+          </p>
+          <div className="space-y-2">
+            {fields.map((f, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-6 text-center text-xs font-mono text-gray-500">{colLetter(i)}</span>
+                <input
+                  value={f}
+                  onChange={(e) => setField(i, e.target.value)}
+                  className="flex-1 border rounded p-2"
+                  placeholder="Notion property name (e.g. Name)"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeField(i)}
+                  className="px-2 py-2 text-sm text-gray-500 hover:text-red-600"
+                  aria-label="Remove field"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addField}
+            className="mt-2 text-sm px-3 py-1.5 rounded border hover:bg-gray-50"
+          >
+            + Add field
+          </button>
+        </div>
+
         <div>
           <label className="block text-sm font-medium">Range</label>
           <input
@@ -122,7 +174,7 @@ export default function JobEdit() {
             className="mt-1 w-full border rounded p-2"
             placeholder="Sheet1!A1:C"
           />
-          <p className="mt-1 text-xs text-gray-500">Use the tab name from the bottom of the sheet. If the tab has spaces, use quotes: &apos;To-do list&apos;!A1:C</p>
+          <p className="mt-1 text-xs text-gray-500">Use the tab name from the bottom of the sheet. If the tab has spaces, use quotes: &apos;To-do list&apos;!A1:C. The sheet is overwritten each run (a mirror of your database).</p>
         </div>
 
         <button

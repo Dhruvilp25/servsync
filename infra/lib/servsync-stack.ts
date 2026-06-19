@@ -6,7 +6,7 @@ import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
-import * as secrets from 'aws-cdk-lib/aws-secretsmanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as apigwv2 from '@aws-cdk/aws-apigatewayv2-alpha';
 import * as apigwInt from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
 
@@ -27,9 +27,15 @@ export class ServsyncStack extends cdk.Stack {
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
     });
 
-    /* ========== Secrets (already created in console) ========== */
-    const notionToken = secrets.Secret.fromSecretNameV2(this, 'NotionToken', 'NOTION_TOKEN');
-    const googleSa = secrets.Secret.fromSecretNameV2(this, 'GoogleSA', 'GOOGLE_SA_JSON');
+    /* ========== Secrets in SSM Parameter Store (created via CLI, see README) ========== */
+    const NOTION_TOKEN_PARAM = '/servsync/NOTION_TOKEN';
+    const GOOGLE_SA_JSON_PARAM = '/servsync/GOOGLE_SA_JSON';
+    const notionToken = ssm.StringParameter.fromSecureStringParameterAttributes(this, 'NotionToken', {
+      parameterName: NOTION_TOKEN_PARAM,
+    });
+    const googleSa = ssm.StringParameter.fromSecureStringParameterAttributes(this, 'GoogleSA', {
+      parameterName: GOOGLE_SA_JSON_PARAM,
+    });
 
     /* ========== Helper to create Lambdas ========== */
     const mk = (id: string, entry: string, extraEnv: Record<string, string> = {}, opts: { memoryMB?: number; timeoutSec?: number } = {}) =>
@@ -40,8 +46,8 @@ export class ServsyncStack extends cdk.Stack {
         environment: {
           JOBS_TABLE: jobs.tableName,
           RUNS_TABLE: runs.tableName,
-          NOTION_TOKEN_ARN: notionToken.secretArn,
-          GOOGLE_SA_JSON_ARN: googleSa.secretArn,
+          NOTION_TOKEN_PARAM,
+          GOOGLE_SA_JSON_PARAM,
           ...extraEnv,
         },
       });
@@ -53,9 +59,8 @@ export class ServsyncStack extends cdk.Stack {
     const record = mk('RecordRun', '../services/lambdas/record-run/index.ts');
 
     // DDB permissions for steps
-    jobs.grantReadData(pull);                 // read Job config
-    jobs.grantReadWriteData(record);         // update watermark
-    runs.grantReadWriteData(record);
+    jobs.grantReadData(pull);                 // read Job config (mapping, source)
+    runs.grantReadWriteData(record);          // mark run SUCCEEDED
 
     // Secrets access
     notionToken.grantRead(pull);
@@ -104,6 +109,8 @@ export class ServsyncStack extends cdk.Stack {
       STATE_MACHINE_ARN: machine.stateMachineArn,
     });
     machine.grantStartExecution(scheduler);
+    jobs.grantReadWriteData(scheduler);  // scan due jobs + bump nextDueAt
+    runs.grantWriteData(scheduler);      // create RUNNING run row up front
 
     new events.Rule(this, 'Every5Min', {
       schedule: events.Schedule.rate(cdk.Duration.minutes(5)),

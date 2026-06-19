@@ -1,7 +1,7 @@
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { google } from 'googleapis';
 
-const sm = new SecretsManagerClient({});
+const ssm = new SSMClient({});
 
 /** Sheets API requires at least one row in A1 notation. "Sheet1!A:C" -> "Sheet1!A1:C" */
 function normalizeSheetsRange(range: string): string {
@@ -12,7 +12,11 @@ function normalizeSheetsRange(range: string): string {
 }
 
 export const handler = async (event: any) => {
-  const raw = (await sm.send(new GetSecretValueCommand({ SecretId: process.env.GOOGLE_SA_JSON_ARN! }))).SecretString!;
+  // Read the Google service-account JSON from SSM (supports JSON { "json": "..." } or plain).
+  const raw = (await ssm.send(new GetParameterCommand({
+    Name: process.env.GOOGLE_SA_JSON_PARAM!,
+    WithDecryption: true,
+  }))).Parameter!.Value!;
   const parsed = JSON.parse(raw) as string | { json?: string };
   const saJson = typeof parsed === 'string' ? parsed : parsed.json ?? raw;
   const sa = JSON.parse(saJson);
@@ -23,20 +27,25 @@ export const handler = async (event: any) => {
   });
   const sheets = google.sheets({ version: 'v4', auth });
 
-  // target comes from Job; Step 1 pulled Job but for brevity we pass it along via API/run input
-  const { values } = event;
-  if (!values?.length) return { ...event, meta: { ...event.meta, pushed: 0 } };
-
-  // Expect API to provide target in event.target or store/parse from Job (simplify: attach in API)
+  const { header, values } = event as { header?: string[]; values: string[][] };
   const { sheetId, range: rawRange } = event.target;
-  // Sheets API requires at least one row in A1 notation (e.g. Sheet1!A1:C). Normalize "Sheet1!A:C" -> "Sheet1!A1:C"
   const range = normalizeSheetsRange(rawRange);
-  await sheets.spreadsheets.values.append({
+
+  // Full-refresh sync: clear the target range, then write header + all rows.
+  // This makes the sheet a true mirror of Notion (no duplicate rows on re-run).
+  await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range });
+
+  const body = header?.length ? [header, ...(values || [])] : values || [];
+  if (body.length === 0) {
+    return { ...event, meta: { ...event.meta, pushed: 0 } };
+  }
+
+  await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
     range,
     valueInputOption: 'USER_ENTERED',
-    requestBody: { values }
+    requestBody: { values: body },
   });
 
-  return { ...event, meta: { ...event.meta, pushed: values.length } };
+  return { ...event, meta: { ...event.meta, pushed: values?.length ?? 0 } };
 };

@@ -113,7 +113,7 @@ export const handler = async (event: any) => {
     const target = job.Item ? JSON.parse(job.Item.target.S!) : undefined;
     const runId = `manual-${Date.now()}`;
     const startedAt = new Date().toISOString();
-    const input = { tenantId, jobId: id, watermark: null, target, runId };
+    const input = { tenantId, jobId: id, target, runId, startedAt };
     const out = await sfn.send(new StartExecutionCommand({
       stateMachineArn: process.env.STATE_MACHINE_ARN!,
       input: JSON.stringify(input)

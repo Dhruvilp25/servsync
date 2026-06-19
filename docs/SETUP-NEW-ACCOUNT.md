@@ -17,27 +17,33 @@ Use this when you’re starting fresh (e.g. new free-tier account). All steps as
 
 ---
 
-## 2. Create secrets in AWS Secrets Manager
+## 2. Store secrets in SSM Parameter Store (free)
 
-In the AWS Console, go to **Secrets Manager** in the **same region** you’ll deploy to (e.g. `us-east-1`).
+ServSync reads credentials from **SSM Parameter Store** `SecureString` parameters (free for
+standard parameters — no Secrets Manager charge). Create both in the **same region** you’ll
+deploy to:
 
-### NOTION_TOKEN
+```bash
+# Notion integration token (starts with ntn_...)
+aws ssm put-parameter --name /servsync/NOTION_TOKEN --type SecureString \
+  --value 'ntn_xxxxxxxxxxxxxxxxxxxx'
 
-- **Create secret** → **Other type of secret**.
-- **Key/value**: add one key, e.g. `token`, value = your Notion integration token (starts with `ntn_...`).  
-  Or use **Plaintext** and paste the token only.
-- **Secret name**: exactly `NOTION_TOKEN`.
-- Create the secret.
+# Google service-account JSON (paste the whole file)
+aws ssm put-parameter --name /servsync/GOOGLE_SA_JSON --type SecureString \
+  --value "$(cat /path/to/service-account.json)"
+```
 
-### GOOGLE_SA_JSON
+Names must be **exactly** `/servsync/NOTION_TOKEN` and `/servsync/GOOGLE_SA_JSON`.
 
-- **Create secret** → **Other type of secret**.
-- **Plaintext**: paste the **entire** Google Cloud service account JSON (the file you download when you create a service account key).  
-  Or use one key `json` and paste that same JSON as the value.
-- **Secret name**: exactly `GOOGLE_SA_JSON`.
-- Create the secret.
+### Google Cloud (for `GOOGLE_SA_JSON`)
 
-(Your Notion integration and Google Sheet must already be set up; the sheet must be shared with the service account email.)
+1. [Google Cloud Console](https://console.cloud.google.com/) → create/pick a project.
+2. **Enable the Google Sheets API** (APIs & Services → Library → “Google Sheets API” → Enable).
+3. Create a **service account** (IAM & Admin → Service Accounts), then add a **JSON key**
+   (Keys → Add key → JSON) — that file is the value above.
+4. **Share your sheet** with the service account email as **Editor**.
+
+(Your Notion integration must also be set up, and the database shared with it.)
 
 ---
 
@@ -117,21 +123,35 @@ Open the URL Vite prints (e.g. http://localhost:5173).
 2. **Job ID**: any id (e.g. `notion-to-sheets-1`).
 3. **Notion Database ID**: from the Notion database URL (the long id). The database must be **shared with your Notion integration** (⋮ → Connections → Add connection).
 4. **Google Sheet ID**: from the sheet URL (`/d/SHEET_ID/...`).
-5. **Range**: use the **tab name** at the bottom of the sheet. Examples:
+5. **Fields to sync**: the **Notion property names** you want, in column order (map to A, B,
+   C… and become the header row). Names must match your database exactly.
+6. **Range**: use the **tab name** at the bottom of the sheet. Examples:
    - `Sheet1!A1:C` if the tab is “Sheet1”.
    - `'To-do list'!A1:C` if the tab is “To-do list” (quotes needed for spaces).
-6. Save, open the job, then **Run now**. Check **Run history** for status.
+7. Save, open the job, then **Run now**. Check **Run history** for status. Each run overwrites
+   the range (a mirror of your database — no duplicate rows).
+
+---
+
+## Teardown
+
+```bash
+cd infra && npx cdk destroy
+aws ssm delete-parameter --name /servsync/NOTION_TOKEN
+aws ssm delete-parameter --name /servsync/GOOGLE_SA_JSON
+```
 
 ---
 
 ## Quick checklist
 
 - [ ] New AWS account + CLI configured (`aws configure`)
-- [ ] Secrets Manager: `NOTION_TOKEN` and `GOOGLE_SA_JSON` created in the deploy region
+- [ ] SSM: `/servsync/NOTION_TOKEN` and `/servsync/GOOGLE_SA_JSON` created in the deploy region
+- [ ] Google Sheets API enabled; sheet shared with the service account email
 - [ ] `infra`: `npm install` and `npx cdk bootstrap`
 - [ ] `infra`: `npx cdk deploy` → copy **HttpApiUrl**
 - [ ] `web/.env`: `VITE_API_BASE=<HttpApiUrl>`
 - [ ] `web`: `npm install` and `npm run dev`
-- [ ] Notion DB shared with integration; create job with correct Sheet range (tab name)
+- [ ] Notion DB shared with integration; create job with fields + correct Sheet range (tab name)
 
-If something fails, check CloudWatch Logs for the Lambda that errors (e.g. PullNotion, PushSheets) and the main [README](../README.md) for Notion/Sheets setup details.
+If something fails, check CloudWatch Logs for the Lambda that errors (e.g. PullNotion, PushSheets) and the main [README](../README.md) for the troubleshooting table.

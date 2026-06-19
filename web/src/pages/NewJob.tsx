@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
+import { colLetter, toMapping } from '../lib/mapping'
 
 export default function NewJob() {
   const [form, setForm] = useState({
@@ -8,15 +9,27 @@ export default function NewJob() {
     name: '',
     notionDbId: '',
     sheetId: '',
-    range: 'Sheet1!A1:C'
+    range: 'Sheet1!A1:C',
   })
+  // Notion property names to sync, in column order (A, B, C, …).
+  const [fields, setFields] = useState<string[]>(['Name', 'Status', 'Due'])
   const [saving, setSaving] = useState(false)
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value })
 
+  const setField = (i: number, value: string) =>
+    setFields(fields.map((f, idx) => (idx === i ? value : f)))
+  const addField = () => setFields([...fields, ''])
+  const removeField = (i: number) => setFields(fields.filter((_, idx) => idx !== i))
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const mapping = toMapping(fields)
+    if (mapping.length === 0) {
+      alert('Add at least one Notion property to sync.')
+      return
+    }
     setSaving(true)
     try {
       await api.post('/jobs', {
@@ -25,11 +38,7 @@ export default function NewJob() {
         name: form.name || form.jobId,
         source: { type: 'notion', dbId: form.notionDbId },
         target: { type: 'sheets', sheetId: form.sheetId, range: form.range },
-        mapping: [
-          { from: 'Name', to: 'A' },
-          { from: 'Status', to: 'B' },
-          { from: 'DueDate', to: 'C' },
-        ],
+        mapping,
         nextDueAt: new Date().toISOString(),
       })
       alert('✅ Job created successfully!')
@@ -95,6 +104,43 @@ export default function NewJob() {
           </div>
         </div>
 
+        {/* Field mapping: Notion property → spreadsheet column (by order) */}
+        <div>
+          <label className="block text-sm font-medium">Fields to sync</label>
+          <p className="mt-1 mb-2 text-xs text-gray-500">
+            Notion property names, in column order. They map to columns A, B, C… and become the
+            sheet’s header row. Names must match your database exactly.
+          </p>
+          <div className="space-y-2">
+            {fields.map((f, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-6 text-center text-xs font-mono text-gray-500">{colLetter(i)}</span>
+                <input
+                  value={f}
+                  onChange={(e) => setField(i, e.target.value)}
+                  className="flex-1 border rounded p-2"
+                  placeholder="Notion property name (e.g. Name)"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeField(i)}
+                  className="px-2 py-2 text-sm text-gray-500 hover:text-red-600"
+                  aria-label="Remove field"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addField}
+            className="mt-2 text-sm px-3 py-1.5 rounded border hover:bg-gray-50"
+          >
+            + Add field
+          </button>
+        </div>
+
         <div>
           <label className="block text-sm font-medium">Range</label>
           <input
@@ -104,7 +150,7 @@ export default function NewJob() {
             className="mt-1 w-full border rounded p-2"
             placeholder="Sheet1!A1:C"
           />
-          <p className="mt-1 text-xs text-gray-500">Use the tab name from the bottom of the sheet. If the tab has spaces, use quotes: &apos;To-do list&apos;!A1:C</p>
+          <p className="mt-1 text-xs text-gray-500">Use the tab name from the bottom of the sheet. If the tab has spaces, use quotes: &apos;To-do list&apos;!A1:C. The sheet is overwritten each run (a mirror of your database).</p>
         </div>
 
         <button

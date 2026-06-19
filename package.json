@@ -1,19 +1,19 @@
 {
   "name": "servsync",
   "version": "1.0.0",
-  "description": "",
+  "description": "Sync Notion databases to Google Sheets on a schedule (serverless on AWS).",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.879.0",
-    "@aws-sdk/client-secrets-manager": "^3.879.0",
     "@aws-sdk/client-sfn": "^3.879.0",
+    "@aws-sdk/client-ssm": "^3.1072.0",
     "@notionhq/client": "^5.0.0",
     "@types/node": "^24.3.0",
     "axios": "^1.12.2",

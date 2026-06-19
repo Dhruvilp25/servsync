@@ -5,5 +5,10 @@ import { ServsyncStack } from '../lib/servsync-stack';
 
 const app = new cdk.App();
 new ServsyncStack(app, 'ServsyncStack', {
-  env: { region: 'us-east-1' } // or ca-central-1 if you prefer
+  // Follow the region/account from your AWS CLI profile (override with
+  // CDK_DEFAULT_REGION or AWS_REGION). Falls back to us-east-1.
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION || process.env.AWS_REGION || 'us-east-1',
+  },
 });
